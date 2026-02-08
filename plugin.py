@@ -94,8 +94,8 @@ class MaizonePlugin(BasePlugin):
             "enable_auto_monitor": ConfigField(type=bool, default=False,
                                                description="是否启用刷空间（自动阅读所有好友说说）"),
             "read_list": ConfigField(type=list, default=[],
-                                     description="自动阅读白名单，仅白名单内QQ号会被自动读说说（文本型QQ号）"),
-            "read_list_type": ConfigField(type=str, default="whitelist",
+                                     description="自动阅读名单（白名单：其中的QQ号会被自动读说说，黑名单：仅其中的QQ号不会被读说说）"),
+            "read_list_type": ConfigField(type=str, default="blacklist",
                                           description="名单类型，whitelist为白名单，blacklist为黑名单"),
             "enable_auto_reply": ConfigField(type=bool, default=False,
                                              description="是否启用自动回复自己说说的评论（当enable_auto_monitor为True）"),
@@ -220,3 +220,4 @@ class MaizonePlugin(BasePlugin):
             (ReadFeedAction.get_action_info(), ReadFeedAction),
 
         ]
+
