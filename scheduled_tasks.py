@@ -281,6 +281,9 @@ class FeedMonitor:
             if len(feeds_list) == 0:
                 logger.info('未读取到新说说')
                 return True, "success"
+            # 获取自动阅读名单及类型
+            read_list = self.plugin.get_config("monitor.read_list", [])
+            list_type = self.plugin.get_config("monitor.read_list_type", "whitelist")
             for feed in feeds_list:
                 await asyncio.sleep(3 + random.random())
                 content = feed["content"]
@@ -291,6 +294,11 @@ class FeedMonitor:
                 target_qq = feed["target_qq"]
                 rt_con = feed.get("rt_con", "")
                 comments_list = feed["comments"]
+                # 名单机制：根据类型判断处理
+                in_list = str(target_qq) in [str(q) for q in read_list]
+                if (list_type == "whitelist" and not in_list) or (list_type == "blacklist" and in_list):
+                    logger.info(f"跳过不在名单策略内的QQ号: {target_qq}")
+                    continue
                 #回复自己的说说评论
                 if target_qq == qq_account:
                     enable_auto_reply = self.plugin.get_config("monitor.enable_auto_reply", False)
