@@ -11,9 +11,8 @@ from pathlib import Path
 from src.common.logger import get_logger
 from src.plugin_system.apis import llm_api, config_api, person_api
 
-from .qzone_api import create_qzone_api
-from .cookie_manager import renew_cookies
-from .utils import monitor_read_feed, reply_feed, comment_feed, like_feed, send_feed
+from .qzone import create_qzone_api, monitor_read_feed, reply_feed, comment_feed, like_feed, send_feed
+from .helpers import get_napcat_config_and_renew, build_diary_config
 
 logger = get_logger("Maizone.定时任务")
 
@@ -205,7 +204,7 @@ class FeedMonitor:
     async def _monitor_loop(self):
         """监控循环"""
         # 获取配置
-        interval = self.plugin.get_config("monitor.interval_minutes", 5)
+        interval = self.plugin.get_config("monitor.interval_minutes", 15)
         # 记录已处理评论，说说id映射已处理评论列表
         processed_list = await _load_processed_list()
         processed_comments = await _load_processed_comments()
@@ -235,7 +234,7 @@ class FeedMonitor:
 
         # 检查时间段控制
         silent_hours = self.plugin.get_config("monitor.silent_hours", "")
-        like_during_silent = self.plugin.get_config("monitor.like_during_silent", True)
+        like_during_silent = self.plugin.get_config("monitor.like_during_silent", False)
         comment_during_silent = self.plugin.get_config("monitor.comment_during_silent", False)
 
         is_silent, allow_like, allow_comment = _is_in_silent_period(silent_hours, like_during_silent, comment_during_silent)
@@ -248,10 +247,6 @@ class FeedMonitor:
                 return True, "静默时间段内跳过刷空间"
 
         qq_account = config_api.get_global_config("bot.qq_account", "")
-        port = self.plugin.get_config("plugin.http_port", "9999")
-        napcat_token = self.plugin.get_config("plugin.napcat_token", "")
-        host = self.plugin.get_config("plugin.http_host", "")
-        cookie_methods = self.plugin.get_config("plugin.cookie_methods", ["napcat", "clientkey", "qrcode", "local"])
         show_prompt = self.plugin.get_config("models.show_prompt", False)
         self_readnum = self.plugin.get_config("monitor.self_readnum", 5)
         #模型配置
@@ -265,7 +260,7 @@ class FeedMonitor:
         bot_expression = config_api.get_global_config("personality.reply_style", "内容积极向上")
         # 更新cookies
         try:
-            await renew_cookies(host, port, napcat_token, cookie_methods)
+            await get_napcat_config_and_renew(self.plugin.get_config)
         except Exception as e:
             logger.error(f"更新cookies失败: {str(e)}")
             return False, "更新cookies失败"
@@ -356,7 +351,7 @@ class FeedMonitor:
 
                         logger.info(f"正在回复{comment['nickname']}的评论：{comment['content']}...")
 
-                        await renew_cookies(host, port, napcat_token, cookie_methods)
+                        await get_napcat_config_and_renew(self.plugin.get_config)
                         success = await reply_feed(fid, target_qq, comment['nickname'], reply, comment['comment_tid'])
                         if not success:
                             logger.error(f"回复评论{comment['content']}失败")
@@ -465,7 +460,7 @@ class FeedMonitor:
 
 
 class ScheduleSender:
-    """定时发送说说的类"""
+    """定时发送说说的类（含日记生成）"""
 
     def __init__(self, plugin):
         self.plugin = plugin
@@ -475,6 +470,7 @@ class ScheduleSender:
         self.fluctuate_table = []  # 记录波动后的发送时间表
         self.last_reset_date = None  # 记录上次重置发送时间表日期
         self.today_send_enabled = True  # 记录今天是否允许发送说说
+        self.last_diary_date = None  # 记录上次生成日记的日期，避免重复生成
 
     async def start(self):
         """启动定时发送任务"""
@@ -586,6 +582,15 @@ class ScheduleSender:
                     self.fluctuate_table.remove(current_time)
                     logger.info(f"剩余发送时间点: {self.fluctuate_table}")
 
+                # 检查是否到达日记生成时间
+                if self._should_generate_diary(current_time):
+                    logger.info("到达日记生成时间，开始生成日记...")
+                    self.last_diary_date = datetime.datetime.now().date()
+                    try:
+                        await self.generate_and_publish_diary()
+                    except Exception as diary_e:
+                        logger.error(f"日记生成任务出错: {str(diary_e)}")
+
                 # 每分钟检查一次
                 await asyncio.sleep(60)
 
@@ -594,6 +599,68 @@ class ScheduleSender:
             except Exception as e:
                 logger.error(f"定时发送任务出错: {str(e)}")
                 await asyncio.sleep(60)  # 出错后等待一分钟再继续
+
+    def _should_generate_diary(self, current_time_str: str) -> bool:
+        """检查当前时间是否到达日记生成时间"""
+        diary_enabled = self.plugin.get_config("diary.enabled", False)
+        if not diary_enabled:
+            return False
+
+        diary_time = self.plugin.get_config("diary.schedule_time", "23:30")
+        if current_time_str != diary_time:
+            return False
+
+        # 避免同一天重复生成
+        today = datetime.datetime.now().date()
+        if self.last_diary_date == today:
+            return False
+
+        return True
+
+    async def generate_and_publish_diary(self):
+        """生成日记并发布到QQ空间"""
+        try:
+            from .diary import DiaryService, SmartFilterSystem, DiaryConstants
+
+            today = datetime.datetime.now().strftime("%Y-%m-%d")
+
+            # 构建 diary 配置字典供 DiaryService 使用
+            diary_config = build_diary_config(self.plugin.get_config)
+
+            diary_service = DiaryService(plugin_config=diary_config)
+
+            # 获取消息
+            filter_mode = self.plugin.get_config("diary.filter_mode", "all")
+            target_chats_str = self.plugin.get_config("diary.target_chats", "")
+            target_chats = [c.strip() for c in target_chats_str.split("\n") if c.strip()] if target_chats_str else []
+
+            date_obj = datetime.datetime.strptime(today, "%Y-%m-%d")
+            start_time = date_obj.timestamp()
+            end_time = datetime.datetime.now().timestamp()
+
+            filter_system = SmartFilterSystem()
+            messages = filter_system.apply_filter_mode(filter_mode, target_chats, start_time, end_time)
+
+            min_msg_count = self.plugin.get_config("diary.min_message_count", DiaryConstants.MIN_MESSAGE_COUNT)
+            if len(messages) < min_msg_count:
+                logger.info(f"日记生成跳过: 消息数量不足({len(messages)}/{min_msg_count})")
+                return
+
+            success, diary_content = await diary_service.generate_diary_from_messages(today, messages, force_50k=True)
+
+            if not success:
+                logger.error(f"定时日记生成失败: {today} - {diary_content}")
+                return
+
+            # 使用 Maizone 的 qzone_api 发布
+            qzone_success = await diary_service.publish_to_qzone(today, diary_content)
+            if qzone_success:
+                logger.info(f"定时日记生成成功: {today} ({len(diary_content)}字) - QQ空间发布成功")
+            else:
+                logger.info(f"定时日记生成成功: {today} ({len(diary_content)}字) - QQ空间发布失败")
+
+        except Exception as e:
+            logger.error(f"定时生成日记出错: {e}")
 
     async def send_scheduled_feed(self):
         """发送定时说说"""
@@ -611,28 +678,25 @@ class ScheduleSender:
         # 人格配置
         bot_personality = config_api.get_global_config("personality.personality", "一个蓝发猫娘")
         bot_expression = config_api.get_global_config("personality.reply_style", "内容积极向上")
-        # 核心配置
-        port = self.plugin.get_config("plugin.http_port", "9999")
-        napcat_token = self.plugin.get_config("plugin.napcat_token", "")
-        host = self.plugin.get_config("plugin.http_host", "127.0.0.1")
-        cookie_methods = self.plugin.get_config("plugin.cookie_methods", ["napcat", "clientkey", "qrcode", "local"])
+        # 更新cookies
+        try:
+            await get_napcat_config_and_renew(self.plugin.get_config)
+        except Exception as e:
+            logger.error(f"更新cookies失败: {str(e)}")
+            return
         # 生成图片相关配置
         image_dir = str(Path(__file__).parent.resolve() / "images")
-        enable_image = self.plugin.get_config("send.enable_image", True)
-        apikey = self.plugin.get_config("models.api_key", "")
+        enable_image = self.plugin.get_config("send.enable_image", False)
         image_mode = self.plugin.get_config("send.image_mode", "random").lower()
         ai_probability = self.plugin.get_config("send.ai_probability", 0.5)
         image_number = self.plugin.get_config("send.image_number", 1)
         # 说说生成相关配置
         history_number = self.plugin.get_config("send.history_number", 5)
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # 获取当前时间
-        # 更新cookies
-        try:
-            await renew_cookies(host, port, napcat_token, cookie_methods)
-        except Exception as e:
-            logger.error(f"更新cookies失败: {str(e)}")
-            return
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         qzone = create_qzone_api()
+        if not qzone:
+            logger.error("创建QzoneAPI失败，cookie可能不存在")
+            return
         # 生成说说内容
         if random_topic:
             prompt_pre = self.plugin.get_config("send.prompt", "你是'{bot_personality}'，现在是'{current_time}'你想写一条主题是'{topic}'的说说发表在qq空间上，"
@@ -690,16 +754,13 @@ class ScheduleSender:
             success, story, reasoning = result
         else:
             logger.error(f"LLM返回值格式不正确: {result}")
-            return False, "生成说说内容失败", True
+            return
 
         if not success:
-            return False, "生成说说内容失败", True
+            logger.error("生成说说内容失败")
+            return
 
         logger.info(f"成功生成说说内容：'{story}'")
-        # 检查apikey
-        if image_mode != "only_emoji" and not apikey:
-            logger.warning('未配置API密钥，无法使用AI生成图片，将改为only_emoji模式')
-            image_mode = "only_emoji"  # 如果没有apikey，则只使用表情包
 
         # 发送说说
         success = await send_feed(story, image_dir, enable_image, image_mode, ai_probability, image_number)

@@ -8,10 +8,9 @@ from src.plugin_system import BaseAction, ActionActivationType
 from src.plugin_system.apis import llm_api, config_api, person_api, generator_api
 from src.common.logger import get_logger
 
-from .qzone_api import create_qzone_api
-from .cookie_manager import renew_cookies
-from .utils import send_feed, read_feed, comment_feed, like_feed
+from .qzone import create_qzone_api, send_feed, read_feed, comment_feed, like_feed
 from .scheduled_tasks import _save_processed_list, _load_processed_list
+from .helpers import check_permission as _check_permission, get_napcat_config_and_renew
 
 
 async def reply_send(action: BaseAction, chat_stream, extra_info: str) -> bool:
@@ -55,17 +54,7 @@ class SendFeedAction(BaseAction):
     associated_types = ["text"]
 
     def check_permission(self, qq_account: str) -> bool:
-        """检查qq号为qq_account的用户是否拥有权限"""
-        permission_list = self.get_config("send.permission")
-        permission_type = self.get_config("send.permission_type")
-        logger.info(f'[{self.action_name}]{permission_type}:{str(permission_list)}')
-        if permission_type == 'whitelist':
-            return qq_account in permission_list
-        elif permission_type == 'blacklist':
-            return qq_account not in permission_list
-        else:
-            logger.error('permission_type错误，可能为拼写错误')
-            return False
+        return _check_permission(self.get_config, qq_account, "send", self.action_name)
 
     async def execute(self) -> Tuple[bool, str]:
         #检查权限
@@ -110,22 +99,9 @@ class SendFeedAction(BaseAction):
         # 人格配置
         bot_personality = config_api.get_global_config("personality.personality", "一个机器人")
         bot_expression = config_api.get_global_config("personality.reply_style", "内容积极向上")
-        # 核心配置
-        port = self.get_config("plugin.http_port", "9999")
-        napcat_token = self.get_config("plugin.napcat_token", "")
-        host = self.get_config("plugin.http_host", "127.0.0.1")
-        cookie_methods = self.get_config("plugin.cookie_methods", ["napcat", "clientkey", "qrcode", "local"])
-        # 生成图片相关配置
-        image_dir = str(Path(__file__).parent.resolve() / "images")
-        apikey = self.get_config("models.api_key", "")
-        image_mode = self.get_config("send.image_mode", "random").lower()
-        ai_probability = self.get_config("send.ai_probability", 0.5)
-        image_number = self.get_config("send.image_number", 1)
-        # 说说生成相关配置
-        history_num = self.get_config("send.history_number", 5)
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # 核心配置 + 更新cookies
         try:
-            await renew_cookies(host, port, napcat_token, cookie_methods)
+            host, port, napcat_token = await get_napcat_config_and_renew(self.get_config)
         except Exception as e:
             logger.error(f"更新cookies失败: {str(e)}")
             await self.store_action_info(
@@ -134,8 +110,19 @@ class SendFeedAction(BaseAction):
                 action_done=False,
             )
             return False, "更新cookies失败"
+        # 生成图片相关配置
+        image_dir = str(Path(__file__).parent.resolve() / "images")
+        image_mode = self.get_config("send.image_mode", "random").lower()
+        ai_probability = self.get_config("send.ai_probability", 0.5)
+        image_number = self.get_config("send.image_number", 1)
+        # 说说生成相关配置
+        history_num = self.get_config("send.history_number", 5)
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # 创建qzone_api实例
         qzone = create_qzone_api()
+        if not qzone:
+            logger.error("创建QzoneAPI失败，cookie可能不存在")
+            return False, "cookie不存在"
 
         prompt_pre = self.get_config("send.prompt", "你是'{bot_personality}'，现在是'{current_time}'你想写一条主题是'{topic}'的说说发表在qq空间上，"
                                           "{bot_expression}，不要刻意突出自身学科背景，不要浮夸，不要夸张修辞，可以适当使用颜文字，只输出一条说说正文的内容，不要输出多余内容"
@@ -166,12 +153,9 @@ class SendFeedAction(BaseAction):
             return False, "生成说说内容失败"
 
         logger.info(f"生成说说内容：'{story}'，即将发送")
-        if image_mode != "only_emoji" and not apikey:
-            logger.warning("未配置apikey，无法生成图片，切换到only_emoji模式")
-            image_mode = "only_emoji"  # 如果没有apikey，则只使用表情包
 
         # 发送说说
-        enable_image = self.get_config("send.enable_image", "true")
+        enable_image = self.get_config("send.enable_image", False)
         success = await send_feed(story, image_dir, enable_image, image_mode, ai_probability, image_number)
         if not success:
             return False, "发送说说失败"
@@ -212,17 +196,7 @@ class ReadFeedAction(BaseAction):
     associated_types = ["text"]
 
     def check_permission(self, qq_account: str) -> bool:
-        """检查qq号为qq_account的用户是否拥有权限"""
-        permission_list = self.get_config("read.permission")
-        permission_type = self.get_config("read.permission_type")
-        logger.info(f'[{self.action_name}]{permission_type}:{str(permission_list)}')
-        if permission_type == 'whitelist':
-            return qq_account in permission_list
-        elif permission_type == 'blacklist':
-            return qq_account not in permission_list
-        else:
-            logger.error('permission_type错误，可能为拼写错误')
-            return False
+        return _check_permission(self.get_config, qq_account, "read", self.action_name)
 
     async def execute(self) -> Tuple[bool, str]:
         #检查权限
@@ -255,14 +229,9 @@ class ReadFeedAction(BaseAction):
 
         target_name = self.action_data.get("target_name", "")
 
-        port = self.get_config("plugin.http_port", "9999")
-        napcat_token = self.get_config("plugin.napcat_token", "")
-        host = self.get_config("plugin.http_host", "")
-        cookie_methods = self.get_config("plugin.cookie_methods", ["napcat", "clientkey", "qrcode", "local"])
-
         # 更新cookies
         try:
-            await renew_cookies(host, port, napcat_token, cookie_methods)
+            await get_napcat_config_and_renew(self.get_config)
         except Exception as e:
             logger.error(f"更新cookies失败: {str(e)}")
             await self.store_action_info(
@@ -411,4 +380,4 @@ class ReadFeedAction(BaseAction):
             action_prompt_display=f"执行阅读说说动作完成，你刚刚成功读了以下说说：{feeds_list}",
             action_done=True,
         )
-        return False, 'success'
+        return True, 'success'

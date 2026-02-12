@@ -9,7 +9,7 @@ import httpx
 import bs4
 import json5
 
-from .cookie_manager import get_cookie_file_path
+from .cookie import get_cookie_file_path
 from src.common.logger import get_logger
 from src.plugin_system.apis import config_api
 from src.chat.utils.utils_image import get_image_manager
@@ -98,8 +98,8 @@ class QzoneAPI:
     LIST_URL = "https://user.qzone.qq.com/proxy/domain/taotao.qq.com/cgi-bin/emotion_cgi_msglist_v6"
     ZONE_LIST_URL = "https://user.qzone.qq.com/proxy/domain/ic2.qzone.qq.com/cgi-bin/feeds/feeds3_html_more"
 
-    def __init__(self, cookies_dict: dict = {}):
-        self.cookies = cookies_dict
+    def __init__(self, cookies_dict: dict = None):
+        self.cookies = cookies_dict or {}
         self.gtk2 = ''
         self.uin = int(config_api.get_global_config('bot.qq_account', ""))
         self.qq_nickname = ""
@@ -111,13 +111,19 @@ class QzoneAPI:
             self,
             method: str,
             url: str,
-            params: dict = {},
-            data: dict = {},
-            headers: dict = {},
+            params: dict = None,
+            data: dict = None,
+            headers: dict = None,
             cookies: dict = None,
             timeout: int = 10
     ) -> httpx.Response:
         """发送带cookies的httpx异步请求，返回response"""
+        if params is None:
+            params = {}
+        if data is None:
+            data = {}
+        if headers is None:
+            headers = {}
         if cookies is None:
             cookies = self.cookies
 
@@ -210,11 +216,11 @@ class QzoneAPI:
         )
         if res.status_code == 200:
             logger.debug(f"上传图片响应: {res.text}")
-            return eval(res.text[res.text.find('{'):res.text.rfind('}') + 1])
+            return json.loads(res.text[res.text.find('{'):res.text.rfind('}') + 1])
         else:
             raise Exception("上传图片失败")
 
-    async def publish_emotion(self, content: str, images: list[bytes] = []) -> str:
+    async def publish_emotion(self, content: str, images: list[bytes] = None) -> str:
         """
         将说说内容和图片上传到QQ空间。图片会先上传并生成对应的pic_bo和richval值，然后与文本内容一起提交。
 
@@ -804,6 +810,8 @@ class QzoneAPI:
             # 获取自己说说下的完整评论内容
             feeds_list = [item for item in feeds_list if item.get('target_qq') != str(self.uin)]  # 去除自己的说说
             self_feeds = await self.get_list(str(self.uin), self_readnum)
+            # 过滤掉可能的error条目
+            self_feeds = [f for f in self_feeds if not f.get("error")]
             feeds_list.extend(self_feeds)
             return feeds_list
         except Exception as e:

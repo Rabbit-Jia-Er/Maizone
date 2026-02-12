@@ -10,3 +10,11 @@ processed_list.json
 processed_comments.json
 cookies-*.json
 images/*
+
+# Runtime Data
+data/
+
+# IDE & Tools
+.claude/
+README--1.md
+nul
