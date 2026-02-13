@@ -13,7 +13,7 @@
 import datetime
 import random
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from .utils import get_bot_personality, DiaryConstants
 from .storage import DiaryStorage
@@ -23,7 +23,7 @@ logger = get_logger("Maizone.diary.service")
 
 
 class DiaryService:
-    def __init__(self, plugin_config: Dict[str, Any] | None = None) -> None:
+    def __init__(self, plugin_config: dict[str, Any] | None = None) -> None:
         self.plugin_config = plugin_config or {}
         self.storage = DiaryStorage()
 
@@ -40,10 +40,10 @@ class DiaryService:
                 return default
         return current
 
-    def build_chat_timeline(self, messages: List[Any]) -> str:
+    def build_chat_timeline(self, messages: list[Any]) -> str:
         if not messages:
             return "今天没有什么特别的对话。"
-        timeline_parts: List[str] = []
+        timeline_parts: list[str] = []
         current_hour = -1
         bot_qq_account = str(config_api.get_global_config("bot.qq_account", ""))
 
@@ -131,7 +131,7 @@ class DiaryService:
         return text[: max_length - 3] + "..."
 
     # ===================== 天气与日期 =====================
-    def get_weather_by_emotion(self, messages: List[Any]) -> str:
+    def get_weather_by_emotion(self, messages: list[Any]) -> str:
         if not messages:
             return random.choice(["晴", "多云", "阴", "多云转晴"])
         all_content = " ".join([(msg.processed_plain_text or '') for msg in messages])
@@ -166,7 +166,7 @@ class DiaryService:
             return f"{date},{weather}。"
 
     # ===================== 生成与发布 =====================
-    async def _generate_with_custom_model(self, prompt: str) -> Tuple[bool, str]:
+    async def _generate_with_custom_model(self, prompt: str) -> tuple[bool, str]:
         try:
             from openai import AsyncOpenAI
             api_key = self.get_config("diary.model.api_key", "")
@@ -194,7 +194,7 @@ class DiaryService:
             logger.error(f"自定义模型调用失败: {e}")
             return False, f"自定义模型调用出错: {str(e)}"
 
-    async def _generate_with_default_model(self, prompt: str, timeline: str) -> Tuple[bool, str]:
+    async def _generate_with_default_model(self, prompt: str, timeline: str) -> tuple[bool, str]:
         try:
             max_tokens = DiaryConstants.TOKEN_LIMIT_50K
             current_tokens = self._estimate_tokens(timeline)
@@ -220,9 +220,9 @@ class DiaryService:
     async def generate_diary_from_messages(
         self,
         date: str,
-        messages: List[Any],
+        messages: list[Any],
         force_50k: bool = True,
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         try:
             personality = await get_bot_personality()
             timeline = self.build_chat_timeline(messages)
@@ -365,7 +365,7 @@ class DiaryService:
     async def publish_to_qzone(self, date: str, diary_content: str) -> bool:
         """发布日记到QQ空间 - 使用 Maizone 的 qzone_api"""
         try:
-            from ..qzone import create_qzone_api, renew_cookies
+            from ..qzone import create_qzone_api
             from ..helpers import get_napcat_config_and_renew
 
             # 发布前刷新 cookie

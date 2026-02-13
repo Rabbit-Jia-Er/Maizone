@@ -6,7 +6,7 @@
 - SmartFilterSystem: 支持白名单/黑名单/全部消息过滤模式
 """
 
-from typing import Any, List, Tuple
+from typing import Any
 
 from src.plugin_system.apis import (
     message_api,
@@ -20,7 +20,7 @@ logger = get_logger("Maizone.diary.message_fetcher")
 class OptimizedMessageFetcher:
     """优化的消息获取器，智能选择最适合的API"""
 
-    def get_messages_by_config(self, configs: List[str], start_time: float, end_time: float) -> List[Any]:
+    def get_messages_by_config(self, configs: list[str], start_time: float, end_time: float) -> list[Any]:
         """根据配置智能选择最适合的API获取消息"""
         all_messages = []
         private_qqs, group_qqs = self._parse_configs(configs)
@@ -35,7 +35,7 @@ class OptimizedMessageFetcher:
 
         return sorted(all_messages, key=lambda x: x.time)
 
-    def _get_private_messages_optimized(self, qq_numbers: List[str], start_time: float, end_time: float) -> List[Any]:
+    def _get_private_messages_optimized(self, qq_numbers: list[str], start_time: float, end_time: float) -> list[Any]:
         """通过QQ号获取私聊消息（包含Bot回复）"""
         all_private_messages = []
 
@@ -66,7 +66,7 @@ class OptimizedMessageFetcher:
 
         return all_private_messages
 
-    def _get_group_messages_optimized(self, group_qqs: List[str], start_time: float, end_time: float) -> List[Any]:
+    def _get_group_messages_optimized(self, group_qqs: list[str], start_time: float, end_time: float) -> list[Any]:
         """通过群号获取群聊消息"""
         all_group_messages = []
 
@@ -113,7 +113,7 @@ class OptimizedMessageFetcher:
             logger.debug(f"判断私聊消息时出错: {e}")
             return True
 
-    def _parse_configs(self, configs: List[str]) -> Tuple[List[str], List[str]]:
+    def _parse_configs(self, configs: list[str]) -> tuple[list[str], list[str]]:
         """解析配置，分离私聊和群聊"""
         private_qqs = []
         group_qqs = []
@@ -135,7 +135,7 @@ class SmartFilterSystem:
     def __init__(self):
         self.fetcher = OptimizedMessageFetcher()
 
-    def apply_filter_mode(self, filter_mode: str, configs: List[str], start_time: float, end_time: float) -> List[Any]:
+    def apply_filter_mode(self, filter_mode: str, configs: list[str], start_time: float, end_time: float) -> list[Any]:
         """应用过滤模式，智能选择最佳策略"""
         if filter_mode == "whitelist":
             if not configs:
@@ -159,7 +159,7 @@ class SmartFilterSystem:
         logger.warning(f"未知的过滤模式: {filter_mode}")
         return []
 
-    def _get_all_messages(self, start_time: float, end_time: float) -> List[Any]:
+    def _get_all_messages(self, start_time: float, end_time: float) -> list[Any]:
         """获取所有消息"""
         try:
             messages = message_api.get_messages_by_time(
@@ -175,7 +175,7 @@ class SmartFilterSystem:
             logger.error(f"获取所有消息失败: {e}")
             return []
 
-    def _filter_excluded_messages(self, all_messages: List[Any], excluded_configs: List[str]) -> List[Any]:
+    def _filter_excluded_messages(self, all_messages: list[Any], excluded_configs: list[str]) -> list[Any]:
         """过滤掉黑名单中的消息"""
         excluded_privates, excluded_groups = self.fetcher._parse_configs(excluded_configs)
         filtered_messages = []

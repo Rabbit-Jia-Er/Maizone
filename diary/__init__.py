@@ -4,4 +4,3 @@ from .service import DiaryService
 from .utils import DiaryConstants, get_bot_personality, format_date_str
 from .storage import DiaryStorage
 from .fetcher import SmartFilterSystem
-from .image import ImageProcessor

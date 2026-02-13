@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import random
 from pathlib import Path
-from typing import Tuple
 
 from src.plugin_system import BaseAction, ActionActivationType
 from src.plugin_system.apis import llm_api, config_api, person_api, generator_api
@@ -10,7 +9,7 @@ from src.common.logger import get_logger
 
 from .qzone import create_qzone_api, send_feed, read_feed, comment_feed, like_feed
 from .scheduled_tasks import _save_processed_list, _load_processed_list
-from .helpers import check_permission as _check_permission, get_napcat_config_and_renew
+from .helpers import check_permission as _check_permission, get_napcat_config_and_renew, build_send_prompt, build_comment_prompt
 
 
 async def reply_send(action: BaseAction, chat_stream, extra_info: str) -> bool:
@@ -56,7 +55,7 @@ class SendFeedAction(BaseAction):
     def check_permission(self, qq_account: str) -> bool:
         return _check_permission(self.get_config, qq_account, "send", self.action_name)
 
-    async def execute(self) -> Tuple[bool, str]:
+    async def execute(self) -> tuple[bool, str]:
         #检查权限
         user_name = self.action_data.get("user_name", "")
         person_id = person_api.get_person_id_by_name(user_name)
@@ -117,26 +116,13 @@ class SendFeedAction(BaseAction):
         image_number = self.get_config("send.image_number", 1)
         # 说说生成相关配置
         history_num = self.get_config("send.history_number", 5)
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # 创建qzone_api实例
         qzone = create_qzone_api()
         if not qzone:
             logger.error("创建QzoneAPI失败，cookie可能不存在")
             return False, "cookie不存在"
 
-        prompt_pre = self.get_config("send.prompt", "你是'{bot_personality}'，现在是'{current_time}'你想写一条主题是'{topic}'的说说发表在qq空间上，"
-                                          "{bot_expression}，不要刻意突出自身学科背景，不要浮夸，不要夸张修辞，可以适当使用颜文字，只输出一条说说正文的内容，不要输出多余内容"
-                                          "(包括前后缀，冒号和引号，括号()，表情包，at或 @等 )")
-        data = {
-            "current_time": current_time,
-            "bot_personality": bot_personality,
-            "topic": topic,
-            "bot_expression": bot_expression
-        }
-        prompt = prompt_pre.format(**data)
-        prompt += "\n以下是你以前发过的说说，写新说说时注意不要在相隔不长的时间发送相同主题的说说\n"
-        prompt += await qzone.get_send_history(history_num)
-        prompt += "\n只输出一条说说正文的内容，不要输出多余内容(包括前后缀，冒号和引号，括号()，表情包，at或 @等 )"
+        prompt = await build_send_prompt(self.get_config, qzone, topic, bot_personality, bot_expression, history_num)
 
         if show_prompt:
             logger.info(f"生成说说prompt内容：{prompt}")
@@ -198,7 +184,7 @@ class ReadFeedAction(BaseAction):
     def check_permission(self, qq_account: str) -> bool:
         return _check_permission(self.get_config, qq_account, "read", self.action_name)
 
-    async def execute(self) -> Tuple[bool, str]:
+    async def execute(self) -> tuple[bool, str]:
         #检查权限
         user_name = self.action_data.get("user_name", "")
         person_id = person_api.get_person_id_by_name(user_name)
@@ -286,8 +272,6 @@ class ReadFeedAction(BaseAction):
         #人格配置
         bot_personality = config_api.get_global_config("personality.personality", "一个机器人")
         bot_expression = config_api.get_global_config("personality.reply_style", "内容积极向上")
-        #时间
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # 获取当前时间
         #逐条点赞回复
         processed_list = await _load_processed_list()
         for feed in feeds_list:
@@ -302,40 +286,11 @@ class ReadFeedAction(BaseAction):
             rt_con = feed.get("rt_con", "")
             if random.random() <= comment_possibility:
                 #评论说说
-                if not rt_con:
-                    prompt_pre = self.get_config("read.prompt", "你是'{bot_personality}'，你正在浏览你好友'{target_name}'的QQ空间，你看到了你的好友'{target_name}'"
-                                          "在qq空间上在'{created_time}'发了一条内容是'{content}'的说说，你想要发表你的一条评论，现在是'{current_time}'"
-                                          "你对'{target_name}'的印象是'{impression}'，若与你的印象点相关，可以适当评论相关内容，无关则忽略此印象，"
-                                          "{bot_expression}，回复的平淡一些，简短一些，说中文，不要刻意突出自身学科背景，不要浮夸，不要夸张修辞，不要输出多余内容"
-                                          "(包括前后缀，冒号和引号，括号()，表情包，at或 @等 )。只输出回复内容")
-                    data = {
-                        "current_time": current_time,
-                        "created_time": feed['created_time'],
-                        "bot_personality": bot_personality,
-                        "bot_expression": bot_expression,
-                        "target_name": target_name,
-                        "content": content,
-                        "impression": impression
-                    }
-                    prompt = prompt_pre.format(**data)
-                else:
-                    prompt_pre = self.get_config("read.rt_prompt", "你是'{bot_personality}'，你正在浏览你好友'{target_name}'的QQ空间，你看到了你的好友'{target_name}'"
-                                             "在qq空间上在'{created_time}'转发了一条内容为'{rt_con}'的说说，你的好友的评论为'{content}'，你对'{" 
-                                             "target_name}'的印象是'{impression}'，若与你的印象点相关，可以适当评论相关内容，无关则忽略此印象，"
-                                             "现在是'{current_time}'，你想要发表你的一条评论，{bot_expression}，"
-                                             "回复的平淡一些，简短一些，说中文，不要刻意突出自身学科背景，不要浮夸，不要夸张修辞，"
-                                             "不要输出多余内容(包括前后缀，冒号和引号，括号()，表情包，at或 @等 )。只输出回复内容")
-                    data = {
-                        "current_time": current_time,
-                        "created_time": feed['created_time'],
-                        "bot_personality": bot_personality,
-                        "bot_expression": bot_expression,
-                        "target_name": target_name,
-                        "content": content,
-                        "rt_con": rt_con,
-                        "impression": impression
-                    }
-                    prompt = prompt_pre.format(**data)
+                prompt = build_comment_prompt(
+                    self.get_config, target_name, content,
+                    feed['created_time'], bot_personality, bot_expression,
+                    impression, rt_con,
+                )
                 logger.info(f"正在评论'{target_name}'的说说：{content[:30]}...")
 
                 if show_prompt:

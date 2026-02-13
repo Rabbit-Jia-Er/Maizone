@@ -3,17 +3,12 @@
 
 包含日记功能的通用工具类和函数：
 - DiaryConstants: 常量定义
-- MockChatStream: 虚拟聊天流（定时任务用）
 - format_date_str: 日期格式化
 - get_bot_personality: 获取Bot人设
-- create_scheduler_action_message: 构建虚拟消息对象
 """
 
-import time
 from typing import Any, Dict
 
-from src.chat.message_receive.chat_stream import ChatStream
-from src.common.data_models.database_data_model import DatabaseMessages
 from src.plugin_system.apis import config_api, get_logger
 
 logger = get_logger("Maizone.diary.utils")
@@ -68,38 +63,3 @@ def format_date_str(date_input: Any) -> str:
     error_msg = f"无法识别的日期格式: {date_input}。支持: YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD"
     logger.debug(error_msg)
     raise ValueError(error_msg)
-
-
-class MockChatStream:
-    """虚拟聊天流类，用于定时任务中的Action初始化"""
-
-    def __init__(self, stream_id: str = "diary_scheduled_task", platform: str = "scheduler"):
-        self.stream_id = stream_id
-        self.platform = platform
-        self.group_info = None
-        self.user_info = None
-
-
-def create_scheduler_action_message(
-    stream_id: str = "diary_scheduled_task",
-    platform: str = "scheduler",
-    user_id: str = "diary_scheduler",
-    user_nickname: str = "DiaryScheduler",
-) -> DatabaseMessages:
-    """构建用于定时任务的虚拟消息对象"""
-    timestamp = time.time()
-    return DatabaseMessages(
-        message_id=stream_id,
-        chat_id=stream_id,
-        time=timestamp,
-        user_id=user_id,
-        user_nickname=user_nickname,
-        user_platform=platform,
-        chat_info_stream_id=stream_id,
-        chat_info_platform=platform,
-        chat_info_create_time=timestamp,
-        chat_info_last_active_time=timestamp,
-        chat_info_user_id=user_id,
-        chat_info_user_nickname=user_nickname,
-        chat_info_user_platform=platform,
-    )

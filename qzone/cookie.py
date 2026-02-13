@@ -18,8 +18,8 @@ qrcode_url = "https://ssl.ptlogin2.qq.com/ptqrshow?appid=549000912&e=2&l=M&s=3&d
 login_check_url = "https://xui.ptlogin2.qq.com/ssl/ptqrlogin?u1=https://qzs.qq.com/qzone/v5/loginsucc.html?para=izone&ptqrtoken={}&ptredirect=0&h=1&t=1&g=1&from_ui=1&ptlang=2052&action=0-0-1656992258324&js_ver=22070111&js_type=1&login_sig=&pt_uistyle=40&aid=549000912&daid=5&has_onekey=1&&o1vId=1e61428d61cb5015701ad73d5fb59f73"
 check_sig_url = "https://ptlogin2.qzone.qq.com/check_sig?pttype=1&uin={}&service=ptqrlogin&nodirect=1&ptsigx={}&s_url=https://qzs.qq.com/qzone/v5/loginsucc.html?para=izone&f_url=&ptlang=2052&ptredirect=100&aid=549000912&daid=5&j_later=0&low_login_hour=0&regmaster=0&pt_login_type=3&pt_aid=0&pt_aaid=16&pt_light=0&pt_3rd_aid=0"
 
-# 内存中的上次扫码登录时间
-_last_qr_login_time = 0
+# 内存中的上次cookie保存时间
+_last_cookie_save_time = 0
 qrcode_path = str(Path(__file__).parent.resolve() / "qrcode.png")
 
 # 支持的cookie更新方法
@@ -36,19 +36,19 @@ def get_cookie_file_path(uin: str) -> str:
 def should_skip_qr_login() -> bool:
     """检查是否应该跳过二维码登录（20小时内已扫过码）"""
     # 爬取的cookie有效期约24小时，可能需要修改
-    global _last_qr_login_time
-    if _last_qr_login_time == 0:
+    global _last_cookie_save_time
+    if _last_cookie_save_time == 0:
         return False
 
     current_time = time.time()
     # 检查是否在20小时内
-    return (current_time - _last_qr_login_time) < 20 * 3600
+    return (current_time - _last_cookie_save_time) < 20 * 3600
 
 
-def update_last_qr_login_time():
+def update_last_cookie_save_time():
     """更新上次扫码登录时间"""
-    global _last_qr_login_time
-    _last_qr_login_time = time.time()
+    global _last_cookie_save_time
+    _last_cookie_save_time = time.time()
 
 
 def parse_cookie_string(cookie_str: str) -> dict:
@@ -177,7 +177,7 @@ class QzoneLogin:
                             os.remove(qrcode_path)
 
                         # 更新上次扫码登录时间
-                        update_last_qr_login_time()
+                        update_last_cookie_save_time()
 
                         return final_cookie_dict
                     logger.debug("等待扫码登录...")
@@ -247,10 +247,10 @@ async def renew_cookies(
         fallback_to_local: 当所有方法都失败时是否回退到本地cookie文件
     """
     # 1小时内无需更新cookie
-    global _last_qr_login_time
+    global _last_cookie_save_time
     current_time = time.time()
-    duration = current_time - _last_qr_login_time
-    if duration < 1 * 3600 and _last_qr_login_time != 0:
+    duration = current_time - _last_cookie_save_time
+    if duration < 1 * 3600 and _last_cookie_save_time != 0:
         logger.info(f"上次更新cookie在{duration}秒前，跳过更新cookie")
         return
 
@@ -339,7 +339,7 @@ async def renew_cookies(
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(cookie_dict, f, indent=4, ensure_ascii=False)
         logger.info(f"[OK] cookies 已保存至: {file_path}")
-        update_last_qr_login_time()
+        update_last_cookie_save_time()
 
     except PermissionError as e:
         logger.error(f"文件写入权限不足: {str(e)}")

@@ -40,8 +40,8 @@
       },
       {
         "type": "command",
-        "name": "send_feed",
-        "description": "根据指定主题发送一条说说"
+        "name": "zn",
+        "description": "Maizone统一命令"
       }
     ]
   },
