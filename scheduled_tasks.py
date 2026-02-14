@@ -315,10 +315,10 @@ class FeedMonitor:
                     # 该说说已处理过，检查是否有人回复了bot的评论
                     if not allow_comment or not comments_list:
                         continue
-                    # 找出bot发的评论的 comment_tid
+                    # 找出bot发的所有评论的 comment_tid（包括顶级评论和子评论，支持多层链式回复）
                     bot_comment_tids = {}  # {comment_tid: comment_content}
                     for c in comments_list:
-                        if str(c.get('qq_account', '')) == str(qq_account) and c.get('parent_tid') is None:
+                        if str(c.get('qq_account', '')) == str(qq_account):
                             bot_comment_tids[c['comment_tid']] = c.get('content', '')
                     if not bot_comment_tids:
                         continue
