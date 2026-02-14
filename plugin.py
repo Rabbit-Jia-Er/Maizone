@@ -122,6 +122,18 @@ class MaizonePlugin(BasePlugin):
                                                 "不要输出多余内容(包括前后缀，冒号和引号，括号()，表情包，at或 @等 )。只输出回复内容",
                                         description="自动回复评论的提示词，可用占位符: {current_time}, {bot_personality}, {nickname}(评论者昵称), "
                                                     "{created_time}(评论时间), {content}(说说内容), {comment_content}(评论内容), {impression}(印象点), {bot_expression}"),
+            "reply_to_reply_prompt": ConfigField(type=str,
+                                        default="你是'{bot_personality}'，你之前在好友的QQ空间评论了一条内容为'{content}'的说说，"
+                                                "你的评论为'{bot_comment}'，现在'{nickname}'在'{created_time}'回复了你的评论，"
+                                                "回复内容为'{reply_content}'，现在是'{current_time}'，你想要对此回复进行回复，"
+                                                "你对'{nickname}'的印象是'{impression}'，若与你的印象点相关，可以适当回复相关内容，"
+                                                "无关则忽略此印象，{bot_expression}，回复的平淡一些，简短一些，说中文，"
+                                                "不要刻意突出自身学科背景，不要浮夸，不要夸张修辞，"
+                                                "不要输出多余内容(包括前后缀，冒号和引号，括号()，表情包，at或 @等 )。只输出回复内容",
+                                        description="回复他人空间中对bot评论的回复的提示词，"
+                                                    "可用占位符: {current_time}, {bot_personality}, {nickname}(回复者昵称), "
+                                                    "{created_time}(回复时间), {content}(原说说内容), {bot_comment}(bot的原始评论), "
+                                                    "{reply_content}(对方的回复内容), {impression}(印象点), {bot_expression}"),
         },
         "routine": {
             "check_interval_minutes": ConfigField(type=int, default=20,

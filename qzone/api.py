@@ -386,7 +386,7 @@ class QzoneAPI:
         else:
             raise Exception("评论失败: " + res.text)
 
-    async def reply(self, fid: str, target_qq: str, target_nickname: str, content: str, comment_tid: str) -> bool:
+    async def reply(self, fid: str, target_qq: str, target_nickname: str, content: str, comment_tid: str, host_uin=None) -> bool:
         """
         回复指定评论。
         TODO 采用子评论回复的方法不可用，暂时通过在评论内容中@目标昵称来实现。
@@ -396,6 +396,7 @@ class QzoneAPI:
             target_nickname (str): 目标QQ昵称。
             content (str): 回复的文本内容。
             comment_tid (str): 评论的唯一标识ID。
+            host_uin: 说说主人的QQ号，默认为None时使用bot自身QQ（在自己空间回复）。
 
         Returns:
             bool: 如果回复成功返回True。
@@ -404,10 +405,11 @@ class QzoneAPI:
             Exception: 如果回复失败或响应状态码不是200，将抛出异常。
         """
         uin = self.uin
+        host = str(host_uin) if host_uin else str(uin)
         post_data = {
-            "topicId": f"{uin}_{fid}__1",  # 使用标准评论格式，而不是针对特定评论
+            "topicId": f"{host}_{fid}__1",  # 说说主人的QQ
             "uin": uin,
-            "hostUin": uin,
+            "hostUin": host,  # 说说主人的QQ
             "content": f"回复@ {target_nickname} ：{content}",  # 内容中明确标示回复对象
             "format": "fs",
             "plat": "qzone",

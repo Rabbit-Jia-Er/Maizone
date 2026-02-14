@@ -312,7 +312,91 @@ class FeedMonitor:
                     continue
                 # 评论他人说说
                 if fid in processed_list:
-                    # 该说说已处理过，跳过
+                    # 该说说已处理过，检查是否有人回复了bot的评论
+                    if not allow_comment or not comments_list:
+                        continue
+                    # 找出bot发的评论的 comment_tid
+                    bot_comment_tids = {}  # {comment_tid: comment_content}
+                    for c in comments_list:
+                        if str(c.get('qq_account', '')) == str(qq_account) and c.get('parent_tid') is None:
+                            bot_comment_tids[c['comment_tid']] = c.get('content', '')
+                    if not bot_comment_tids:
+                        continue
+                    # 找出回复bot评论的新子评论
+                    replies_to_bot = []
+                    for c in comments_list:
+                        if (c.get('parent_tid') in bot_comment_tids
+                                and str(c.get('qq_account', '')) != str(qq_account)
+                                and c['comment_tid'] not in processed_comments.get(fid, [])):
+                            replies_to_bot.append(c)
+                    if not replies_to_bot:
+                        continue
+                    # 逐条回复
+                    for reply_comment in replies_to_bot:
+                        bot_original = bot_comment_tids.get(reply_comment['parent_tid'], '')
+                        # 获取印象
+                        person_id = person_api.get_person_id("qq", reply_comment['qq_account'])
+                        impression = await person_api.get_person_value(person_id, "memory_points", ["无"])
+                        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        # 构建 prompt
+                        prompt_pre = self.plugin.get_config(
+                            "monitor.reply_to_reply_prompt",
+                            "你是'{bot_personality}'，你之前在好友的QQ空间评论了一条内容为'{content}'的说说，"
+                            "你的评论为'{bot_comment}'，现在'{nickname}'在'{created_time}'回复了你的评论，"
+                            "回复内容为'{reply_content}'，现在是'{current_time}'，你想要对此回复进行回复，"
+                            "你对'{nickname}'的印象是'{impression}'，若与你的印象点相关，可以适当回复相关内容，"
+                            "无关则忽略此印象，{bot_expression}，回复的平淡一些，简短一些，说中文，"
+                            "不要刻意突出自身学科背景，不要浮夸，不要夸张修辞，"
+                            "不要输出多余内容(包括前后缀，冒号和引号，括号()，表情包，at或 @等 )。只输出回复内容"
+                        )
+                        data = {
+                            "current_time": current_time,
+                            "created_time": reply_comment.get('created_time', ''),
+                            "bot_personality": bot_personality,
+                            "bot_expression": bot_expression,
+                            "nickname": reply_comment['nickname'],
+                            "content": content,
+                            "bot_comment": bot_original,
+                            "reply_content": reply_comment['content'],
+                            "impression": impression,
+                        }
+                        prompt = prompt_pre.format(**data)
+                        logger.info(f"正在回复{reply_comment['nickname']}对bot评论的回复：{reply_comment['content']}...")
+
+                        if show_prompt:
+                            logger.info(f"回复评论的回复prompt内容：{prompt}")
+
+                        success, reply_text, reasoning, model_name = await llm_api.generate_with_model(
+                            prompt=prompt,
+                            model_config=model_config,
+                            request_type="story.generate",
+                            temperature=0.3,
+                            max_tokens=4096
+                        )
+
+                        if not success:
+                            logger.error("生成回复内容失败")
+                            continue
+
+                        await get_napcat_config_and_renew(self.plugin.get_config)
+                        success = await reply_feed(
+                            fid, reply_comment['qq_account'],
+                            reply_comment['nickname'], reply_text,
+                            reply_comment['comment_tid'],
+                            host_uin=target_qq
+                        )
+                        if not success:
+                            logger.error(f"回复{reply_comment['nickname']}的回复失败")
+                            continue
+                        logger.info(f"发送回复'{reply_text}'成功")
+                        # 标记已处理
+                        processed_comments.setdefault(fid, []).append(reply_comment['comment_tid'])
+                        # 为防止字典无限增长，限制字典大小
+                        while len(processed_comments) > self.plugin.get_config("monitor.processed_comments_cache_size", 100):
+                            oldest_fid = next(iter(processed_comments))
+                            processed_comments.pop(oldest_fid)
+                        await _save_processed_comments(processed_comments)
+                        await asyncio.sleep(5 + random.random() * 5)
                     continue
                 person_id = person_api.get_person_id("qq", target_qq)
                 impression = await person_api.get_person_value(person_id, "memory_points", ["无"])

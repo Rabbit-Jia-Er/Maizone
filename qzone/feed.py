@@ -465,7 +465,7 @@ async def comment_feed(target_qq: str, fid: str, content: str) -> bool:
         return False
 
 
-async def reply_feed(fid: str, target_qq: str, target_nickname: str, content: str, comment_tid: str) -> bool:
+async def reply_feed(fid: str, target_qq: str, target_nickname: str, content: str, comment_tid: str, host_uin=None) -> bool:
     """通过调用QZone API的`reply`方法回复指定评论。"""
     qzone = create_qzone_api()
     if not qzone:
@@ -473,7 +473,7 @@ async def reply_feed(fid: str, target_qq: str, target_nickname: str, content: st
         return False
 
     try:
-        success = await qzone.reply(fid, target_qq, target_nickname, content, comment_tid)
+        success = await qzone.reply(fid, target_qq, target_nickname, content, comment_tid, host_uin=host_uin)
         if not success:
             logger.error("回复失败")
             return False
