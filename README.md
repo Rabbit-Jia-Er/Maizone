@@ -1,58 +1,34 @@
-# Maizone（麦麦空间） 插件
+# Maizone（麦麦空间）
 
-> [!IMPORTANT]
->
-> 为了您的安全，请设置Token。操作方法：在设置http服务器时面板最下方的Token栏中填入密码，在生成的config.toml文件中填写该密码
-
-*制作者水平有限，任何漏洞、疑问或建议欢迎提出issue或联系qq：1523640161*
-
-## 概述
-
-Maizone（麦麦空间）插件，让你的麦麦发说说，读QQ空间，点赞评论，写日记！
-
-效果展示：
-
-<img src="images/done_show.png" style="zoom:50%;" />
+MaiBot 的 QQ 空间插件。让你的麦麦发说说、刷空间、自动评论点赞、回复评论、写日记！
 
 ## 功能
 
-- **发说说**: 命令 `/zn <主题>` 或自然语言触发（"发条说说"），支持指定主题、自定义内容
-- **说说配图**: 从表情包中选择 / AI生成配图 / 随机混合，AI配图自动注入Bot外观特征
-- **读说说**: 对麦麦说"读一下我的QQ空间"，麦麦会获取目标账号最近的动态并点赞评论
-- **日记功能**: 从聊天记录生成日记，支持多种风格，可自动发布到QQ空间
-- **权限管理**: 白名单/黑名单模式，分别控制发说说和读说说的权限
-- **Routine 模式**: 由 autonomous_planning 插件的日程数据驱动，LLM 决策是否发说说/刷空间，行为更拟人
-- **自动刷空间**: 后台浏览好友说说，自动点赞、评论，自动回复自己说说下的评论
-
-## 命令一览
-
-所有命令统一使用 `/zn` 前缀：
-
-| 命令 | 说明 | 权限 |
-|------|------|------|
-| `/zn help` | 查看帮助 | 所有人 |
-| `/zn <主题>` | 发一条指定主题的说说 | send权限 |
-| `/zn custom` | 发送自定义私聊内容的说说 | send权限 |
-| `/zn gen` | 生成今天的日记 | send权限 |
-| `/zn gen <日期>` | 生成指定日期的日记 | send权限 |
-| `/zn ls` | 查看日记列表和统计 | send权限 |
-| `/zn v` | 查看今天的日记 | 所有人 |
-| `/zn v <日期>` | 查看指定日期的日记 | 所有人 |
-| `/zn v <日期> <编号>` | 查看指定编号的日记 | 所有人 |
-
-日期格式支持：`YYYY-MM-DD`、`YYYY/MM/DD`、`YYYY.MM.DD`、`今天`、`昨天`、`前天`
+**发说说** — `/zn <主题>` 或自然语言触发，根据人格和历史说说生成内容，可选 AI 配图
+**读说说** — 自然语言触发（"读一下我的QQ空间"），获取好友说说并点赞评论
+**自动刷空间** — Routine 模式驱动，自动评论、点赞、回复评论：
+- 评论未读的好友说说
+- 按概率点赞
+- 回复自己说说下的新评论（`enable_auto_reply`）
+- 回复他人空间中对 bot 评论的回复（非静默时段自动生效）
+**日记** — 从聊天记录生成日记，手动 `/zn gen` 或定时自动生成
+**Routine** — 依赖 autonomous_planning 插件，LLM 决策是否发说说/刷空间
 
 ## 使用方法
 
 ### 安装插件
 
-1. 下载或克隆本仓库（麦麦旧版本可在release中下载适配旧版的插件）
+1. 使用命令行工具或是 git base 进入你的麦麦目录
 
-   ```bash
-   git clone https://github.com/internetsb/Maizone.git
+   ```shell
+   cd MaiBot/plugins
    ```
 
-2. 将 `Maizone\`文件夹放入 `MaiBot\plugins`文件夹下（路径中不要含有标点符号，中文字符）
+2. 克隆本仓库
+
+   ```shell
+   git clone https://github.com/Rabbit-Jia-Er/Maizone.git
+   ```
 
 3. 根据部署方式安装相应依赖，示例：
 
@@ -80,17 +56,38 @@ Maizone（麦麦空间）插件，让你的麦麦发说说，读QQ空间，点�
      pip install -i https://mirrors.aliyun.com/pypi/simple -r .\requirements.txt --upgrade
      ```
 
-     启动一次麦麦自动生成 `config.toml`配置文件，成功生成配置文件即说明读取插件成功（未生成配置文件请检查启动麦麦时的加载插件日志）
+     启动 MaiBot，插件目录下自动生成 `config.toml`，按注释填写配置后重启即可（未生成配置文件请检查启动麦麦时的加载插件日志）
 
-### 设置Napcat http服务器端口以获取cookie
+## 命令一览
 
-![](images/done_napcat1.png)
+所有命令统一使用 `/zn` 前缀：
 
-![](images/done_napcat2.png)
+| 命令 | 说明 | 权限 |
+|------|------|------|
+| `/zn help` | 查看帮助 | 所有人 |
+| `/zn <主题>` | 发一条指定主题的说说 | send权限 |
+| `/zn custom` | 发送自定义私聊内容的说说 | send权限 |
+| `/zn gen` | 生成今天的日记 | send权限 |
+| `/zn gen <日期>` | 生成指定日期的日记 | send权限 |
+| `/zn ls` | 查看日记列表和统计 | send权限 |
+| `/zn v` | 查看今天的日记 | 所有人 |
+| `/zn v <日期>` | 查看指定日期的日记 | 所有人 |
+| `/zn v <日期> <编号>` | 查看指定编号的日记 | 所有人 |
 
-启用后在 `config.toml` 中填写在napcat中设置的host（默认127.0.0.1）和端口号（默认9999）用于获取cookie
+日期格式支持：`YYYY-MM-DD`、`YYYY/MM/DD`、`YYYY.MM.DD`、`今天`、`昨天`、`前天`
 
-插件支持4种cookie获取方式，按 `cookie_methods` 配置的顺序依次尝试：
+## 配置
+
+### `[plugin]`
+
+| 项 | 默认值 | 说明 |
+|----|--------|------|
+| `enable` | `true` | 启用插件 |
+| `http_host` | `"127.0.0.1"` | Napcat 地址 |
+| `http_port` | `"9999"` | Napcat 端口 |
+| `napcat_token` | `""` | Napcat Token |
+| `cookie_methods` | `["napcat", "clientkey", "qrcode", "local"]` | Cookie 获取方式，按顺序尝试 |
+> 为了您的安全，请设置Token。操作方法：在设置http服务器时面板最下方的Token栏中填入密码，在生成的config.toml文件中填写该密码
 
 | 方式 | 说明 |
 |------|------|
@@ -99,168 +96,110 @@ Maizone（麦麦空间）插件，让你的麦麦发说说，读QQ空间，点�
 | `qrcode` | 扫描插件目录下的二维码登录（有效期约一天） |
 | `local` | 读取已保存的cookie文件（[如何获取QQ空间cookie？](https://www.xjr7670.com/articles/how-to-get-qzone-cookie.html)） |
 
-> [!IMPORTANT]
->
-> **Docker部署使用方法**
->
-> 将Napcat设置的HTTP Server的Host栏改为0.0.0.0，插件的config.toml中的http_host栏改为"napcat"（注意引号）。经测试可正常使用
->
-> **NapCat设置**
->
-> ![](images/done_docker_napcat.png)
->
-> **插件config设置**
->
-> ![](images/done_docker_config.png)
->
-> **正常监听后的日志显示**
->
-> ![](images/done_docker_log.png)
+### `[send]`
 
-### 修改配置文件
+`/zn`、Action、Routine 共用。权限同时控制日记命令。
 
-请检查：
+| 项 | 默认值 | 说明 |
+|----|--------|------|
+| `permission` | `["114514"]` | 权限 QQ 号 |
+| `permission_type` | `"whitelist"` | `whitelist` / `blacklist` |
+| `enable_image` | `false` | 启用配图 |
+| `image_mode` | `"random"` | `only_ai` / `only_emoji` / `random` |
+| `ai_probability` | `0.5` | AI 配图概率 |
+| `image_number` | `1` | 图片数量 1-4 |
+| `history_number` | `5` | 参考历史说说数量 |
+| `prompt` | *见配置文件* | 提示词。占位符：`{current_time}` `{bot_personality}` `{topic}` `{bot_expression}` `{current_activity}` |
+| `custom_qqaccount` | `""` | custom 模式私聊 QQ |
+| `custom_only_mai` | `true` | custom 模式用 bot 发言 |
+| `pic_plugin_model` | `""` | 麦麦绘卷模型 key |
 
-1. `MaiBot/config/bot_config.toml` 中 `qq_account` 是否为bot的QQ号
+### `[read]`
 
-请设置：
+Action 和刷空间评论共用。
 
-2. 是否启用插件及各种功能
-3. 是否启用说说配图和AI生成配图（及相应的模型配置）
-4. 权限名单及类型
+| 项 | 默认值 | 说明 |
+|----|--------|------|
+| `permission` | `["114514"]` | 权限 QQ 号 |
+| `permission_type` | `"blacklist"` | `whitelist` / `blacklist` |
+| `read_number` | `5` | 读取说说数量 |
+| `like_possibility` | `1.0` | 点赞概率 |
+| `comment_possibility` | `1.0` | 评论概率 |
+| `prompt` | *见配置文件* | 评论提示词。占位符：`{current_time}` `{bot_personality}` `{target_name}` `{created_time}` `{content}` `{impression}` `{bot_expression}` |
+| `rt_prompt` | *见配置文件* | 转发说说评论提示词。额外：`{rt_con}` |
 
-更多配置请看 `config.toml` 中的注释
+### `[monitor]`
 
-### 配置说明
+| 项 | 默认值 | 说明 |
+|----|--------|------|
+| `read_list` | `[]` | 自动阅读名单 |
+| `read_list_type` | `"blacklist"` | `whitelist` / `blacklist` |
+| `enable_auto_reply` | `false` | 回复自己说说下的评论 |
+| `self_readnum` | `5` | 检查自己最新说说数量 |
+| `silent_hours` | `"22:00-07:00"` | 静默时段 |
+| `like_during_silent` | `false` | 静默期允许点赞 |
+| `comment_during_silent` | `false` | 静默期允许评论 |
+| `like_possibility` | `1.0` | 点赞概率 |
+| `comment_possibility` | `1.0` | 评论概率 |
+| `processed_comments_cache_size` | `100` | 已处理评论缓存上限 |
+| `processed_feeds_cache_size` | `100` | 已处理说说缓存上限 |
+| `reply_prompt` | *见配置文件* | 回复评论提示词。占位符：`{current_time}` `{bot_personality}` `{nickname}` `{created_time}` `{content}` `{comment_content}` `{impression}` `{bot_expression}` |
+| `reply_to_reply_prompt` | *见配置文件* | 回复他人空间中对 bot 评论的回复。占位符：`{current_time}` `{bot_personality}` `{nickname}` `{created_time}` `{content}` `{bot_comment}` `{reply_content}` `{impression}` `{bot_expression}` |
 
-`config.toml` 分为以下几个配置区：
+### `[routine]`
 
-| 区段 | 说明 |
-|------|------|
-| `[plugin]` | 基础配置：Napcat连接地址、端口、Token、cookie获取方式 |
-| `[send]` | 发说说配置：权限、图片、prompt。`/zn <主题>`、发说说Action、Routine发说说共用此配置。权限同时控制 `/zn gen`、`/zn ls` |
-| `[read]` | 读说说配置：权限、prompt。读说说Action使用。刷空间评论他人说说时也使用此处prompt |
-| `[monitor]` | 刷空间配置：浏览好友说说时的评论点赞行为、静默时间段、自动回复评论 |
-| `[routine]` | 日程驱动配置：由 autonomous_planning 插件日程驱动，LLM 决策是否发说说和刷空间。冷却时间为硬限制 |
-| `[models]` | 模型配置：文本模型、图片prompt模板、调试选项 |
-| `[diary]` | 日记功能：手动或定时生成日记，权限复用 `[send]` 的permission |
-| `[diary.model]` | 日记模型：可使用自定义模型或MaiBot默认replyer模型 |
+依赖 autonomous_planning 插件。
 
-### Routine 模式
+| 项 | 默认值 | 说明 |
+|----|--------|------|
+| `check_interval_minutes` | `20` | 检查间隔（分钟） |
+| `post_cooldown_minutes` | `120` | 发说说冷却（分钟） |
+| `browse_cooldown_minutes` | `40` | 刷空间冷却（分钟） |
 
-Routine 模式是插件的核心自动行为系统，启动后自动运行：
+### `[models]`
 
-1. **日程驱动**: 从 autonomous_planning 插件的数据库读取 Bot 当前活动（仅当天数据，无数据则不行动）
-2. **LLM 决策**: 根据当前活动和时间，由 LLM 判断是否适合发说说/刷空间（严格模式，大部分情况回答"否"）
-3. **冷却硬限制**: 发说说默认冷却 120 分钟，刷空间默认冷却 40 分钟，冷却期内直接跳过不询问 LLM
-4. **睡觉跳过**: 活动类型为 sleeping 时跳过所有行为
-5. **日记**: 到达设定时间时自动生成日记
+| 项 | 默认值 | 说明 |
+|----|--------|------|
+| `text_model` | `"replyer"` | 文本模型 |
+| `image_prompt` | *见配置文件* | 图片提示词备选 |
+| `clear_image` | `true` | 上传后清理图片 |
+| `show_prompt` | `false` | 日志显示 prompt |
 
-> [!NOTE]
-> Routine 模式依赖 autonomous_planning 插件。未安装或当天无日程数据时，Routine 不会触发任何自动行为。
+### `[diary]`
 
-### （可选）AI生图
+权限复用 `[send]`。
 
-本插件通过麦麦绘卷（Mai's Art Journal）插件生成图片。生成配图时会自动注入麦麦绘卷 `[selfie]` 中配置的 Bot 外观特征（`prompt_prefix`），并在有参考图片时使用图生图模式。
+| 项 | 默认值 | 说明 |
+|----|--------|------|
+| `enabled` | `false` | 启用自动日记 |
+| `schedule_time` | `"23:30"` | 自动生成时间 |
+| `style` | `"diary"` | `diary` / `qqzone` / `custom` |
+| `min_message_count` | `3` | 最少消息数 |
+| `min_word_count` | `250` | 最少字数 |
+| `max_word_count` | `350` | 最多字数 |
+| `filter_mode` | `"all"` | `all` / `whitelist` / `blacklist` |
+| `target_chats` | `""` | 每行一个 `group:群号` 或 `private:QQ号` |
+| `custom_prompt` | `""` | 自定义模板 |
 
-配置步骤：
+### `[diary.model]`
 
-1. 确保已安装麦麦绘卷插件并在其配置中设置好图片生成模型
-2. 在 Maizone 的 `config.toml` 中将 `[send]` 区段的 `enable_image` 设为 `true`
-3. 将 `pic_plugin_model` 填写为麦麦绘卷配置中的模型key（例如其配置中有 `[models.kolors]`，则填 `kolors`）
-4. `image_mode` 可选 `only_ai`（仅AI生成）、`only_emoji`（仅表情包）、`random`（随机混合）
+| 项 | 默认值 | 说明 |
+|----|--------|------|
+| `use_custom_model` | `false` | 使用自定义模型 |
+| `api_url` | `"https://api.siliconflow.cn/v1"` | API 地址 |
+| `api_key` | `""` | API 密钥 |
+| `model_name` | `"Pro/deepseek-ai/DeepSeek-V3"` | 模型名称 |
+| `temperature` | `0.7` | 温度 |
+| `api_timeout` | `300` | 超时（秒） |
 
-### （可选）自定义内容
 
-主题为 `custom` 时将发送与 `custom_qqaccount` 私聊的最新一条内容（过滤 `/` 开头的命令），根据 `custom_only_mai` 配置选择麦麦或私聊对象的发言。
+## 贡献和反馈
 
-- 命令：`/zn custom`
-
-使用示例：
-
-- **麦麦做梦**：
-  1. 配置麦麦做梦：发送至私聊，勾选存储到上下文
-  2. 配置 `custom_qqaccount` 为相同私聊的QQ号
-
-### （可选）日记功能
-
-日记功能会从聊天记录中提取当天的对话内容，通过LLM生成日记。
-
-**手动生成**：`/zn gen` 或 `/zn gen 2025-01-01`
-
-**自动生成**：在 `[diary]` 中设置 `enabled = true` 和 `schedule_time`（默认23:30）
-
-**日记风格**：
-- `diary` — 日记体，传统日记格式
-- `qqzone` — 说说体，适合发到QQ空间
-- `custom` — 自定义prompt模板
-
-**消息过滤**：通过 `filter_mode` 和 `target_chats` 控制从哪些群聊/私聊中收集消息
-
-**自定义模型**：在 `[diary.model]` 中设置 `use_custom_model = true` 并配置API地址、密钥、模型名称
-
-### 快速开始
-
-**配置权限**：在 `config.toml` 中的 `[send]` 和 `[read]` 区段分别设置 `permission`（QQ号列表）和 `permission_type`（whitelist/blacklist）
-
-**发说说**：发送命令 `/zn 今天的心情` 或自然语言 "发条说说吧"/"发一条xxx的说说"，等待几秒后麦麦将发送一条说说至QQ空间
-
-**读说说**：对麦麦说 "读一下我的QQ空间"/"评价一下@xxx的空间"，麦麦将对其近几条说说进行点赞评论
-
-**生成日记**：发送命令 `/zn gen`，麦麦会根据当天聊天记录生成日记并发布到QQ空间
-
-**Routine 自动行为**：安装 autonomous_planning 插件后，Routine 模式自动启动，根据日程和 LLM 决策自动发说说和刷空间
-
-## 常见问题
-
-- **Q：所有功能都失败报错**
-
-  **A：请检查是否生成cookie，cookie名称与内容中的qq号是否正确，`MaiBot/config/bot_config.toml` 中 `qq_account` 是否填写正确**
-
-- **Q：No module named 'bs4'**
-
-  **A：安装依赖失败，请根据使用说明，确保在MaiBot运行的环境下，按照安装麦麦时的方法，选择恰当的方式安装依赖**
-
-- **Q：No module named 'plugins.Maizone-2'** / **'No module named 'plugins.internetsb'**
-
-  **A：'.'导致被错误地识别为了包，请重命名文件夹为Maizone，不要含有标点符号及中文字符**
-
-- **Q：提示词为空，无法正常回复/回复"你好，我能为你做什么？"...**
-
-  **A：版本更新导致的配置不兼容，请删除 `config.toml` 重新生成**
-
-- **Q：我发了一条说说，但bot没有回复**
-
-  **A：bot无法阅读相册上传、小程序分享、过早的说说，且某些说说（比如新加的好友）需要多次才能读到，具体读取情况以日志为准**
-
-- **Q：listen EACCES: permission denied 127.0.0.1:9999**
-
-  **A：可能为端口9999被占用，可选择更换为其它端口，并修改相应配置**
-
-- **Q：如何更改使用的模型配置**
-
-  **A：请查看 `MaiBot/config/model_config.toml`，默认使用replyer**
-
-  ```
-  [model_task_config.replyer] # 首要回复模型，还用于表达器和表达方式学习
-  model_list = ["xxxxxx"]
-  temperature = xxx
-  max_tokens = xxx
-  ```
-
-  **可更换为配置的utils、utils_small、tool_use等模型，模型列表配置参看MaiBot文档**
-
-- **Q：`/send_feed` 命令不存在了？**
-
-  **A：v2.5.0 起所有命令统一为 `/zn` 前缀，原 `/send_feed` 改为 `/zn <主题>`，原 `/diary` 改为 `/zn gen`**
-
+- **制作者水平有限，任何漏洞、疑问或建议,欢迎提交 Issue 和 Pull Request！**
+- **或联系QQ：1523640161,3082618311**
 - **其余问题请联系作者修复或解决（部分好友请求可能被过滤导致回复不及时，请见谅）**
 
-## 已知问题
-
-- 可能出现对同一条说说重复评论，或对同一条评论重复回复的问题，欢迎提供出现问题时的日志
-- 当前解析说说附带的视频时仅解析了视频封面
-- 当前对评论进行回复时仅使用了评论+@的方式而非通常的子评论
+---
 
 ## 鸣谢
 
