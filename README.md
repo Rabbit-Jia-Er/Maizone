@@ -36,12 +36,12 @@ MaiBot 的 QQ 空间插件。让你的麦麦发说说、刷空间、自动评论
 
 3. 根据部署方式安装相应依赖，示例：
 
-   - 一键包安装：在`![[点我启动!!!`后出现的菜单中选择交互式安装pip模块，按模块名安装bs4和json5
+   - 一键包安装：在`![[点我启动!!!`后出现的菜单中选择交互式安装pip模块，按模块名依次安装 `httpx`、`Pillow`、`bs4`、`json5`、`openai`
 
    - docker部署安装：宿主机内
 
      ```bash
-     docker exec -it maim-bot-core uv pip install bs4 json5 --system
+     docker exec -it maim-bot-core uv pip install -r plugins/Maizone/requirements.txt --system
      ```
 
      您可能需要修改docker-compose.yaml以持久化python包
@@ -60,7 +60,7 @@ MaiBot 的 QQ 空间插件。让你的麦麦发说说、刷空间、自动评论
      pip install -i https://mirrors.aliyun.com/pypi/simple -r .\requirements.txt --upgrade
      ```
 
-     启动 MaiBot，插件目录下自动生成 `config.toml`，按注释填写配置后重启即可（未生成配置文件请检查启动麦麦时的加载插件日志）
+4. 启动 MaiBot，插件目录下自动生成 `config.toml`，按注释填写配置后重启即可（未生成配置文件请检查启动麦麦时的加载插件日志）
 
 ## 命令与触发
 
