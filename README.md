@@ -46,15 +46,15 @@ MaiBot 的 QQ 空间插件。让你的麦麦发说说、刷空间、自动评论
 
      您可能需要修改docker-compose.yaml以持久化python包
 
-   - uv安装：在plugins\Maizone文件夹下
+   - uv安装：在plugins/Maizone文件夹下
 
-     ```bash
-     uv pip install -r .\requirements.txt -i https://mirrors.aliyun.com/pypi/simple --upgrade
+     ```shell
+     uv pip install -r ./requirements.txt -i https://mirrors.aliyun.com/pypi/simple --upgrade
      ```
 
    - pip安装：在MaiBot文件夹下
 
-     ```bash
+     ```shell
      .\venv\Scripts\activate
      cd .\plugins\Maizone\
      pip install -i https://mirrors.aliyun.com/pypi/simple -r .\requirements.txt --upgrade
